@@ -1,0 +1,8 @@
+[package]
+name = "plugin-rpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strum_macros = "0.23.1"
+rkyv = { version = "0.7.44", features = ["validation", "bytecheck", "strict"] }

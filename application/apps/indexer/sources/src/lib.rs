@@ -74,7 +74,7 @@ pub enum Error {
     NotSupported,
 }
 
-pub(crate) const DEFAULT_READER_CAPACITY: usize = 10 * 1024 * 1024;
+pub(crate) const DEFAULT_READER_CAPACITY: usize = 512 * 1024; // TODO TEMP !
 pub(crate) const DEFAULT_MIN_BUFFER_SPACE: usize = 10 * 1024;
 
 /// A `ByteSource` provides a way to read data from some underlying data source. But it does

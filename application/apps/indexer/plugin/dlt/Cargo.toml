@@ -1,0 +1,24 @@
+[workspace]
+
+[package]
+name = "plugin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wasm-bindgen = "0.2.92"
+lazy_static = "1.4.0"
+parsers = { path = "../../parsers" }
+plugin-rpc = { path = "../rpc" }
+rkyv = { version = "0.7.44", features = ["validation", "bytecheck", "strict"] }
+
+[dev-dependencies]
+env_logger = "0.10.0"
+plugin-host = { path = "../host" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+#strip = true
+strip = "debuginfo"

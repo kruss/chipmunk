@@ -5,10 +5,12 @@ authors = ["esrlabs.com"]
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1"
 blake3 = "1.3"
 crossbeam-channel = "0.5"
 dirs = "5.0"
-dlt-core = "0.14"
+dlt-core = { path = "../../../../../dlt-core", features = ["statistics"] }
+# dlt-core = "0.14"
 envvars = "0.1"
 file-tools = { path = "../addons/file-tools" }
 futures = "0.3"
@@ -18,8 +20,11 @@ log = "0.4"
 merging = { path = "../merging" }
 mime_guess = "2.0.4"
 parsers = { path = "../parsers" }
+plugin-host = { path = "../plugin/host" }
+plugin-rpc = { path = "../plugin/rpc" }
 processor = { path = "../processor" }
 rustc-hash = "1.1"
+rkyv = { version = "0.7.44", features = ["validation", "bytecheck", "strict"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serialport = "4.2.2"
@@ -33,3 +38,4 @@ walkdir = "2.3"
 
 [dev-dependencies]
 lazy_static = "1.4"
+tempfile = "3.10.1"

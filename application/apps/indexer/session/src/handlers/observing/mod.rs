@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use crate::{
     operations::{OperationAPI, OperationResult},
     state::SessionStateAPI,
+    plugin::dlt::{DltPluginFactory, DltParserProxy},
     tail,
 };
+use plugin_host::PluginFactory;
 use log::trace;
 use parsers::{
-    dlt::{fmt::FormatOptions, DltParser},
+    //dlt::{fmt::FormatOptions, DltParser},
     someip::SomeipParser,
     text::StringTokenizer,
     LogMessage, MessageStreamItem, ParseYield, Parser,
@@ -61,6 +63,7 @@ pub async fn run_source<S: ByteSource>(
             run_producer(operation_api, state, source_id, producer, rx_tail).await
         }
         ParserType::Dlt(settings) => {
+            /*
             let fmt_options = Some(FormatOptions::from(settings.tz.as_ref()));
             let dlt_parser = DltParser::new(
                 settings.filter_config.as_ref().map(|f| f.into()),
@@ -68,6 +71,10 @@ pub async fn run_source<S: ByteSource>(
                 fmt_options.as_ref(),
                 settings.with_storage_header,
             );
+             */
+            let dlt_plugin_factory = DltPluginFactory::new();
+            let dlt_plugin = dlt_plugin_factory.create(0).unwrap();
+            let dlt_parser = DltParserProxy::new(dlt_plugin, settings.with_storage_header);
             let producer = MessageProducer::new(dlt_parser, source, rx_sde);
             run_producer(operation_api, state, source_id, producer, rx_tail).await
         }
