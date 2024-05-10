@@ -138,6 +138,7 @@ mod tests {
         let mut consumed_bytes = 0usize;
         let mut consumed_msg = 0usize;
         while let Some(reload_info) = binary_source.reload(None).await.unwrap() {
+            println!("=> {:?}", reload_info);
             assert!(reload_info.available_bytes >= 4);
             consumed_bytes += 4;
             consumed_msg += 1;

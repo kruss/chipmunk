@@ -3,15 +3,19 @@ use crate::{
     operations::{OperationAPI, OperationResult},
     progress::Severity,
     state::SessionStateAPI,
+    plugin::source::{SourcePluginFactory, ByteSourceProxy},
     tail,
 };
 use sources::{
     binary::{
         pcap::{legacy::PcapLegacyByteSource, ng::PcapngByteSource},
-        raw::BinaryByteSource,
+        //raw::BinaryByteSource,
     },
     factory::{FileFormat, ParserType},
+    DEFAULT_MIN_BUFFER_SPACE,
+    DEFAULT_READER_CAPACITY
 };
+use plugin_host::PluginFactory;
 use std::{fs::File, path::Path};
 use tokio::{
     join, select,
@@ -34,7 +38,15 @@ pub async fn observe_file<'a>(
     ) = channel(1);
     match file_format {
         FileFormat::Binary => {
-            let source = BinaryByteSource::new(input_file(filename)?);
+            //let source = BinaryByteSource::new(input_file(filename)?);
+            let source_plugin_factory = SourcePluginFactory::new();
+            let source_plugin = source_plugin_factory.create(0).unwrap();
+            let source = ByteSourceProxy::new(
+                source_plugin,
+                filename,
+                DEFAULT_READER_CAPACITY,
+                DEFAULT_MIN_BUFFER_SPACE
+            );
             let (_, listening) = join!(
                 tail::track(filename, tx_tail, operation_api.cancellation_token()),
                 super::run_source(

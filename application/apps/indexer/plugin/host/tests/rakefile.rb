@@ -76,7 +76,7 @@ namespace :wasi do
     task :build => :setup do |t|
         title t.name
         cd "wasi" do
-            Rake.sh "cargo +stable build --release --target wasm32-wasi"
+            Rake.sh "cargo +nightly rustc --release --target wasm32-wasi -- -Z wasi-exec-model=reactor"
             cd "target/wasm32-wasi/release" do
                 FileUtils.remove("plugin.wat") if File.exist?("plugin.wat")
                 system("wasm2wat plugin.wasm >> plugin.wat")

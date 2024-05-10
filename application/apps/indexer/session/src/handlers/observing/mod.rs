@@ -73,7 +73,7 @@ pub async fn run_source<S: ByteSource>(
             );
              */
             let dlt_plugin_factory = DltPluginFactory::new();
-            let dlt_plugin = dlt_plugin_factory.create(0).unwrap();
+            let dlt_plugin = dlt_plugin_factory.create(1).unwrap();
             let dlt_parser = DltParserProxy::new(dlt_plugin, settings.with_storage_header);
             let producer = MessageProducer::new(dlt_parser, source, rx_sde);
             run_producer(operation_api, state, source_id, producer, rx_tail).await

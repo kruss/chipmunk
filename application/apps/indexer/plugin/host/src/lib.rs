@@ -3,7 +3,14 @@ pub mod wasm;
 
 use log::info;
 use plugin_rpc::*;
-use std::{any::Any, cell::RefCell, collections::HashMap, fmt::Debug, marker::{Send, Sync}, rc::Rc};
+use std::{
+    any::Any,
+    cell::RefCell,
+    collections::HashMap,
+    fmt::Debug,
+    marker::{Send, Sync},
+    rc::Rc,
+};
 use strum_macros::Display;
 
 pub type PluginName<'a> = &'a str;
@@ -31,7 +38,7 @@ impl<'a> PluginRuntime<'a> {
     }
 
     pub fn create_proxy(&mut self, name: PluginName<'a>) -> Result<PluginProxyRef, PluginError> {
-        if let Some(factory) = &self.factories.get(&name) {
+        if let Some(factory) = &mut self.factories.get_mut(&name) {
             let mut proxy = factory.create(self.next_id)?;
             self.next_id += 1;
             proxy.init()?;

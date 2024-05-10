@@ -51,10 +51,7 @@ impl PluginFactory for WasmPluginFactory {
 
         let instance = Instance::new(&mut store, &module, &imports).expect("instance");
 
-        let memory = instance
-            .exports
-            .get_memory("memory")
-            .expect("memory");
+        let memory = instance.exports.get_memory("memory").expect("memory");
         //memory.grow(&mut store, 1024).expect("grow"); // TODO via config or dynamically
         let memory_view = memory.view(&store);
         debug!("wasm memory: {:?} bytes", memory_view.data_size());

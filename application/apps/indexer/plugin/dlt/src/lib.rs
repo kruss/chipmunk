@@ -45,7 +45,7 @@ pub fn message(input: Vec<u8>) -> Vec<u8> {
         PluginRequest::Plugin(DltParserRequest::Setup(DltParserSettings {
             with_storage_header
         })) => {
-            print("init");
+            print("init parser");
             parser.with_storage_header = with_storage_header;
             PluginResponse::Plugin(DltParserResponse::SetupDone)
         }

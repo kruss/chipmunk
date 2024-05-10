@@ -64,7 +64,7 @@ pub struct DltParserProxy {
 
 impl DltParserProxy {
     pub fn new(mut proxy: PluginProxyObj, with_storage_header: bool) -> Self {
-        println!("\x1b[93mhost : new proxy<{}>\x1b[0m", proxy.id());
+        println!("\x1b[93mhost : new dlt-parser proxy<{}>\x1b[0m", proxy.id());
 
         let request: PluginRequest<DltParserRequest> = PluginRequest::Plugin(
             DltParserRequest::Setup(DltParserSettings {

@@ -1,3 +1,5 @@
+#![no_main]
+
 use lazy_static::lazy_static;
 use std::{
     ffi::{c_char, CString},
@@ -49,6 +51,7 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
         request
     ));
 
+    test_file_io();
     let mut response = request.to_vec(); // TODO
 
     print(&format!(
@@ -65,10 +68,9 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
     Response(ptr, len as u32)
 }
 
-fn main() {
+fn test_file_io() {
     let mut file = fs::File::create("/wasi.txt").unwrap();
     writeln!(file, "Hello WASI!").unwrap();
-
     let file = File::open("/wasi.txt").unwrap_or_else(|error| panic("open", &error.to_string()));
     let reader = BufReader::new(file);
     for line in reader.lines() {

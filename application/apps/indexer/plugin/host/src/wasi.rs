@@ -25,13 +25,6 @@ impl PluginFactory for WasiPluginFactory {
         let mut store = Store::default();
         let module = Module::from_binary(&store, &self.binary).expect("compile");
 
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-
-        let _guard = runtime.enter();
-
         let mut wasi_env = WasiEnv::builder(format!("wasi-proxy<{}>", id))
             .fs(default_fs_backing())
             .preopen_dir(Path::new("/"))
@@ -54,7 +47,8 @@ impl PluginFactory for WasiPluginFactory {
                 let memory = env.data().memory.as_ref().unwrap();
                 let memory_view = memory.view(store.borrow());
                 let string = ptr.read_utf8_string(&memory_view, len).unwrap();
-                debug!("proxy<{}> : {}", env.data().id, string);
+                //debug!("proxy<{}> : {}", env.data().id, string);
+                println!("\x1b[93mproxy<{}> : {}\x1b[0m", env.data().id, string);
             },
         );
 
@@ -62,6 +56,11 @@ impl PluginFactory for WasiPluginFactory {
 
         let instance = Instance::new(&mut store, &module, &imports).expect("instance");
 
+        let memory = instance.exports.get_memory("memory").expect("memory");
+        //memory.grow(&mut store, 1024).expect("grow"); // TODO via config or dynamically
+        let memory_view = memory.view(&store);
+        debug!("wasm memory: {:?} bytes", memory_view.data_size());
+        
         wasi_env
             .initialize(&mut store, instance.clone())
             .expect("initialize_env");
@@ -75,10 +74,13 @@ impl PluginFactory for WasiPluginFactory {
                 .clone(),
         );
 
-        let start = instance.exports.get_function("_start").expect("exports");
+        let start = instance
+            .exports
+            .get_function("_initialize")
+            .expect("exports");
         start.call(&mut store, &[]).expect("start");
 
-        wasi_env.on_exit(&mut store, None);
+        //wasi_env.on_exit(&mut store, None);
 
         Ok(Box::new(WasiProxy::new(id, store, instance)))
     }
@@ -185,6 +187,13 @@ mod tests {
     #[test]
     fn test_wasi_proxy() {
         let _ = env_logger::try_init();
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let _guard = runtime.enter();
 
         let binary = load_plugin();
         let factory = WasiPluginFactory::new(binary);

@@ -38,13 +38,42 @@ pub mod source {
     #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
     #[archive(check_bytes)]
     pub enum ByteSourceRequest {
-        Dummy
+        Setup(ByteSourceSettings),
+        Consume(usize),
+        Reload,
+    }
+
+    #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+    #[archive(check_bytes)]
+    pub struct ByteSourceSettings {
+        pub input_path: String,
+        pub total_capacity: usize,
+        pub buffer_min: usize
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
     #[archive(check_bytes)]
     pub enum ByteSourceResponse {
-        Dummy
+        SetupDone,
+        ConsumeDone,
+        ReloadResult(SourceReloadResult)
+    }
+
+    #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
+    #[archive(check_bytes)]
+    pub enum SourceReloadResult {
+        ReloadOk(SourceReloadOutput),
+        ReloadEof,
+        ReloadError(String)
+    }
+
+    #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+    #[archive(check_bytes)]
+    pub struct SourceReloadOutput {
+        pub newly_loaded_bytes: usize,
+        pub available_bytes: usize,
+        pub skipped_bytes: usize,
+        pub bytes: Vec<u8>,
     }
 }
 

@@ -1,0 +1,21 @@
+[workspace]
+
+[package]
+name = "plugin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lazy_static = "1.4.0"
+#sources = { path = "../../sources" }
+plugin-rpc = { path = "../rpc" }
+rkyv = { version = "0.7.44", features = ["validation", "bytecheck", "strict"] }
+
+[dev-dependencies]
+env_logger = "0.10.0"
+tokio = { version = "1.24", features = ["full"] }
+#plugin-host = { path = "../host" }
+
+[profile.release]
+#strip = true
+strip = "debuginfo"
