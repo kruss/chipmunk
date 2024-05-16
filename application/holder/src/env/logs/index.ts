@@ -8,8 +8,8 @@ const store = new FileStore();
 
 export function setLogLevelFromEnvvars(): void {
     const level = (() => {
-        if (envvars.get().CHIPMUNK_DEVELOPING_MODE === true) {
-            return Level.VERBOS;
+        if (envvars.get().CHIPMUNK_DEVELOPING_MODE === false) {
+            return Level.WARNING;
         }
         const devLevel = utils.getLogLevelFromStr(envvars.get().CHIPMUNK_DEV_LOGLEVEL);
         if (devLevel !== undefined) {

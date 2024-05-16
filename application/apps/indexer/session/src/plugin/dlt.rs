@@ -121,7 +121,7 @@ impl DltParserProxy {
                     Some(Err(ParserError::Eof))
                 },
                 DltParserResult::ParseError(error) => {
-                    println!("\x1b[93mhost : return error from proxy<{}> : {}\x1b[0m", self.proxy.id(), error);
+                    //println!("\x1b[93mhost : return error from proxy<{}> : {}\x1b[0m", self.proxy.id(), error);
                     self.stats.parse_error += 1;
                     Some(Err(ParserError::Parse(error)))
                 }

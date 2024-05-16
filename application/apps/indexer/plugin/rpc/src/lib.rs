@@ -39,8 +39,7 @@ pub mod source {
     #[archive(check_bytes)]
     pub enum ByteSourceRequest {
         Setup(ByteSourceSettings),
-        Consume(usize),
-        Reload,
+        Reload(usize),
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
@@ -55,7 +54,6 @@ pub mod source {
     #[archive(check_bytes)]
     pub enum ByteSourceResponse {
         SetupDone,
-        ConsumeDone,
         ReloadResult(SourceReloadResult)
     }
 

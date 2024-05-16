@@ -1,5 +1,5 @@
 use dlt_core::dlt::{Argument, LogLevel, Message, MessageType, PayloadContent, Value};
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use crate::Attachment;
 
@@ -325,10 +325,8 @@ impl FileExtractor {
 #[allow(clippy::get_first)]
 #[cfg(test)]
 pub mod tests {
-
-    use std::{fs::File, io::Write};
-
     use super::*;
+    use std::{fs::File, io::Write, path::PathBuf};
     use dlt_core::dlt::*;
 
     const DLT_HEADER_SIZE: usize = 16;

@@ -32,6 +32,7 @@ pub struct ByteSourceProxy {
     proxy: PluginProxyObj,
     stats: ByteSourceStats,
     content: Vec<u8>,
+    offset: usize,
 }
 
 impl ByteSourceProxy {
@@ -63,7 +64,8 @@ impl ByteSourceProxy {
         Self {
             proxy, 
             stats: ByteSourceStats::default(),
-            content: vec![]
+            content: vec![],
+            offset: 0
         }
     }
 }
@@ -73,30 +75,25 @@ impl ByteSource for ByteSourceProxy {
     fn consume(&mut self, offset: usize) {
         self.stats.calls_consume += 1;
 
-        let request: PluginRequest<ByteSourceRequest> = PluginRequest::Plugin(
-            ByteSourceRequest::Consume(offset));
-        let request_bytes = rkyv::to_bytes::<_, 256>(&request).unwrap();
-
-        match self.proxy.call(&request_bytes) {
-            Ok(response_bytes) => {
-                let response: PluginResponse<ByteSourceResponse> = rkyv::from_bytes(&response_bytes).unwrap();
-                if let PluginResponse::Plugin(ByteSourceResponse::ConsumeDone) = response {
-                    // nothing
-                } else {
-                    panic!("source-plugin: unexpected response: #{}", response);
-                }
-            }
-            _ => {
-                panic!("source-plugin: request failed");
-            }
+        if self.len() >= offset {
+            self.offset += offset;
         }
     }
 
     async fn reload(&mut self, _filter: Option<&SourceFilter>) -> Result<Option<ReloadInfo>, SourceError> {
+        if self.offset == 0 && !self.content.is_empty() {
+            return Ok(Some(ReloadInfo::new(
+                0,
+                self.content.len(),
+                0,
+                None,
+            )));
+        }
+
         self.stats.calls_reload += 1;
 
         let request: PluginRequest<ByteSourceRequest> = PluginRequest::Plugin(
-            ByteSourceRequest::Reload);
+            ByteSourceRequest::Reload(self.offset));
         let request_bytes = rkyv::to_bytes::<_, 256>(&request).unwrap();
 
         match self.proxy.call(&request_bytes) {
@@ -107,6 +104,8 @@ impl ByteSource for ByteSourceProxy {
                         SourceReloadResult::ReloadOk(result) => {
                             self.stats.reload_ok += 1;
                             self.content = result.bytes;
+                            self.offset = 0;
+
                             return Ok(Some(ReloadInfo::new(
                                 result.newly_loaded_bytes,
                                 result.available_bytes,
@@ -135,11 +134,11 @@ impl ByteSource for ByteSourceProxy {
     }
 
     fn current_slice(&self) -> &[u8] {
-        &self.content
+        &self.content[self.offset..]
     }
 
     fn len(&self) -> usize {
-        self.content.len()
+        self.content.len() - self.offset
     }
 }
 
