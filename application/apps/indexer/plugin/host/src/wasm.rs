@@ -24,19 +24,26 @@ impl PluginFactory for WasmPluginFactory {
         let mut store = Store::default();
         let module = Module::from_binary(&store, &self.binary).expect("compile");
 
-        let env = FunctionEnv::new(&mut store, PluginEnv { id, memory: None });
+        let plugin_env = FunctionEnv::new(&mut store, PluginEnv { id, memory: None });
+
+        let host_print = Function::new_typed_with_env(
+            &mut store,
+            &plugin_env,
+            |env: FunctionEnvMut<PluginEnv>, ptr: WasmPtr<u8>, len: u32| {
+                let store = env.as_store_ref();
+                let memory = env.data().memory.as_ref().unwrap();
+                let memory_view = memory.view(store.borrow());
+                let string = ptr.read_utf8_string(&memory_view, len).unwrap();
+                //debug!("proxy<{}> : {}", env.data().id, string);
+                println!("\x1b[93mproxy<{}> : {}\x1b[0m", env.data().id, string);
+            },
+        );
+
         let imports = imports! {
             "host" => {
-                "host_print" => Function::new_typed_with_env(&mut store, &env,
-                    |env: FunctionEnvMut<PluginEnv>, ptr: WasmPtr<u8>, len: u32| {
-                        let store = env.as_store_ref();
-                        let memory = env.data().memory.as_ref().unwrap();
-                        let memory_view = memory.view(store.borrow());
-                        let string = ptr.read_utf8_string(&memory_view, len).unwrap();
-                        //debug!("proxy<{}> : {}", env.data().id, string);
-                        println!("\x1b[93mproxy<{}> : {}\x1b[0m", env.data().id, string);
-                }),
+                "host_print" => host_print,
             },
+            // Note: Imports due dependencies:
             "__wbindgen_placeholder__" => {
                 "__wbindgen_describe" => Function::new_typed(&mut store, |_: i32| { todo!() }),
             },
@@ -56,8 +63,8 @@ impl PluginFactory for WasmPluginFactory {
         let memory_view = memory.view(&store);
         debug!("wasm memory: {:?} bytes", memory_view.data_size());
 
-        let env = env.as_mut(&mut store);
-        env.memory = Some(memory.clone());
+        let plugin_env = plugin_env.as_mut(&mut store);
+        plugin_env.memory = Some(memory.clone());
 
         Ok(Box::new(WasmProxy::new(id, store, instance)))
     }

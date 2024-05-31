@@ -39,7 +39,8 @@ impl PluginFactory for WasiPluginFactory {
             .expect("imports");
 
         let plugin_env = FunctionEnv::new(&mut store, PluginEnv { id, memory: None });
-        let plugin_print = Function::new_typed_with_env(
+
+        let host_print = Function::new_typed_with_env(
             &mut store,
             &plugin_env,
             |env: FunctionEnvMut<PluginEnv>, ptr: WasmPtr<u8>, len: u32| {
@@ -52,7 +53,7 @@ impl PluginFactory for WasiPluginFactory {
             },
         );
 
-        imports.define("host", "host_print", plugin_print);
+        imports.define("host", "host_print", host_print);
 
         let instance = Instance::new(&mut store, &module, &imports).expect("instance");
 
@@ -60,7 +61,7 @@ impl PluginFactory for WasiPluginFactory {
         //memory.grow(&mut store, 1024).expect("grow"); // TODO via config or dynamically
         let memory_view = memory.view(&store);
         debug!("wasm memory: {:?} bytes", memory_view.data_size());
-        
+
         wasi_env
             .initialize(&mut store, instance.clone())
             .expect("initialize_env");

@@ -4,7 +4,6 @@ use std::{
     mem,
     sync::Mutex,
 };
-use wasm_bindgen::prelude::*;
 
 #[link(wasm_import_module = "host")]
 extern "C" {
@@ -28,12 +27,18 @@ lazy_static! {
     static ref SEQ: Mutex<usize> = Mutex::new(0);
 }
 
-#[wasm_bindgen]
-pub fn message(request: Vec<u8>) -> Vec<u8> {
+#[repr(C)]
+pub struct Response(*mut u8, u32);
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
     let mut seq = SEQ
         .lock()
         .unwrap_or_else(|error| panic("lock", &error.to_string()));
     *seq += 1;
+
+    let request = unsafe { std::slice::from_raw_parts(ptr, len.try_into().unwrap()) };
 
     print(&format!(
         "receive request<{}> with {} bytes",
@@ -41,13 +46,17 @@ pub fn message(request: Vec<u8>) -> Vec<u8> {
         request.len()
     ));
 
-    let response = request.clone(); // TODO
-    mem::forget(request);
+    let mut response = request.to_vec(); // TODO
 
     print(&format!(
         "send response<{}> with {} bytes",
         seq,
         response.len()
     ));
-    response.to_vec()
+
+    let ptr = response.as_mut_ptr();
+    let len = response.len();
+    mem::forget(response);
+
+    Response(ptr, len as u32)
 }

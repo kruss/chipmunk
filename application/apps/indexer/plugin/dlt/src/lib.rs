@@ -6,7 +6,6 @@ use std::{
     mem,
     sync::Mutex,
 };
-use wasm_bindgen::prelude::*;
 
 #[link(wasm_import_module = "host")]
 extern "C" {
@@ -30,8 +29,13 @@ lazy_static! {
     static ref PARSER: Mutex<DltParser<'static>> = DltParser::default().into();
 }
 
-#[wasm_bindgen]
-pub fn message(input: Vec<u8>) -> Vec<u8> {
+#[repr(C)]
+pub struct Response(*mut u8, u32);
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
+    let input = unsafe { std::slice::from_raw_parts(ptr, len.try_into().unwrap()) };
     //print(&format!("receive request with {} bytes", input.len()));
 
     let request =
@@ -43,7 +47,7 @@ pub fn message(input: Vec<u8>) -> Vec<u8> {
 
     let response = match request {
         PluginRequest::Plugin(DltParserRequest::Setup(DltParserSettings {
-            with_storage_header
+            with_storage_header,
         })) => {
             print("init parser");
             parser.with_storage_header = with_storage_header;
@@ -71,9 +75,13 @@ pub fn message(input: Vec<u8>) -> Vec<u8> {
                                 Some(format!("{}", message)) // TODO
                             }
                         };
-                        results.push(DltParserResult::ParseOk(DltParseOutput { bytes_remaining, message }));
+                        results.push(DltParserResult::ParseOk(DltParseOutput {
+                            bytes_remaining,
+                            message,
+                        }));
                         if rest.is_empty() {
-                            response = PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                            response =
+                                PluginResponse::Plugin(DltParserResponse::ParseResult(results));
                             break;
                         } else {
                             input = rest;
@@ -87,7 +95,8 @@ pub fn message(input: Vec<u8>) -> Vec<u8> {
                             message: None,
                         }));
                         if rest.is_empty() {
-                            response = PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                            response =
+                                PluginResponse::Plugin(DltParserResponse::ParseResult(results));
                             break;
                         } else {
                             input = rest;
@@ -122,13 +131,16 @@ pub fn message(input: Vec<u8>) -> Vec<u8> {
             PluginResponse::Runtime(PluginRuntimeResponse::Error)
         }
     };
-    mem::forget(input);
 
-    let output = rkyv::to_bytes::<_, 256>(&response)
+    let mut output = rkyv::to_bytes::<_, 256>(&response)
         .unwrap_or_else(|error| panic("to_bytes", &error.to_string()));
-
     //print(&format!("send response with {} bytes", output.len()));
-    output.to_vec()
+
+    let ptr = output.as_mut_ptr();
+    let len = output.len();
+    mem::forget(output);
+
+    Response(ptr, len as u32)
 }
 
 #[cfg(test)]
@@ -189,7 +201,8 @@ mod tests {
 
         let dlt_msg = "2019-03-20T02:15:50.758172000Z\u{4}ECU1\u{4}1\u{4}383\u{4}64\u{4}6027030\u{4}ECU1\u{4}VSom\u{4}vssd\u{4}LogLevel DEBUG\u{4}\u{5}[383: ServiceDiscoveryUdpEndpoint(160.48.199.102:50152)] \u{5}ProcessMessage\u{5}:\u{5}269\u{5}: \u{5}160.48.199.16,30501";
 
-        let request = PluginRequest::Plugin(DltParserRequest::Parse(DltParseInput { bytes: dlt_bytes }));
+        let request =
+            PluginRequest::Plugin(DltParserRequest::Parse(DltParseInput { bytes: dlt_bytes }));
         let input = rkyv::to_bytes::<_, 256>(&request).unwrap();
         let output = proxy.call(&input).expect("call");
         let response: PluginResponse<DltParserResponse> = rkyv::from_bytes(&output).unwrap();
@@ -197,7 +210,11 @@ mod tests {
         if let PluginResponse::Plugin(DltParserResponse::ParseResult(results)) = response {
             assert_eq!(1, results.len());
             let result = results.get(0).unwrap();
-            if let DltParserResult::ParseOk(DltParseOutput { bytes_remaining, message }) = result {
+            if let DltParserResult::ParseOk(DltParseOutput {
+                bytes_remaining,
+                message,
+            }) = result
+            {
                 assert_eq!(0, *bytes_remaining);
                 assert_eq!(dlt_msg, message.as_ref().unwrap());
             } else {
@@ -229,7 +246,9 @@ mod tests {
     pub fn test_dlt_responses() {
         let items = [
             PluginResponse::Runtime(PluginRuntimeResponse::Init),
-            PluginResponse::Plugin(DltParserResponse::ParseResult(vec![DltParserResult::ParseEof])),
+            PluginResponse::Plugin(DltParserResponse::ParseResult(vec![
+                DltParserResult::ParseEof,
+            ])),
         ];
 
         for item in items {
