@@ -1,13 +1,16 @@
-use plugin_host::{PluginError, PluginFactory, PluginId, PluginProxyObj, wasi::WasiPluginFactory};
-use plugin_rpc::{*, source::*};
-use sources::{ByteSource, ReloadInfo, SourceFilter, Error as SourceError};
-use std::{fs, path::{PathBuf, Path}};
 use async_trait::async_trait;
+use plugin_host::{wasi::WasiPluginFactory, PluginError, PluginFactory, PluginId, PluginProxy};
+use plugin_rpc::{source::*, *};
+use sources::{ByteSource, Error as SourceError, ReloadInfo, SourceFilter};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 // Plugin factory that will create a WASI byte-source plugin.
 // TODO: Load WASI binary via configuration.
 pub struct SourcePluginFactory {
-    factory: WasiPluginFactory
+    factory: WasiPluginFactory,
 }
 
 impl SourcePluginFactory {
@@ -15,42 +18,50 @@ impl SourcePluginFactory {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../plugin/source/target/wasm32-wasi/release/plugin.wasm");
         let binary = fs::read(path).unwrap();
-        
-        SourcePluginFactory { 
-            factory: WasiPluginFactory::new(binary)
+
+        SourcePluginFactory {
+            factory: WasiPluginFactory::new(binary),
         }
     }
 }
 
 impl PluginFactory for SourcePluginFactory {
-    fn create(&self, id: PluginId) -> Result<PluginProxyObj, PluginError> {
+    fn create(&self, id: PluginId) -> Result<PluginProxy, PluginError> {
         self.factory.create(id)
     }
 }
 
 pub struct ByteSourceProxy {
-    proxy: PluginProxyObj,
+    proxy: PluginProxy,
     stats: ByteSourceStats,
     content: Vec<u8>,
     offset: usize,
 }
 
 impl ByteSourceProxy {
-    pub fn new(mut proxy: PluginProxyObj, input_path: &Path, total_capacity: usize, buffer_min: usize) -> Self {
-        println!("\x1b[93mhost : new byte-source proxy<{}>\x1b[0m", proxy.id());
+    pub fn new(
+        mut proxy: PluginProxy,
+        input_path: &Path,
+        total_capacity: usize,
+        buffer_min: usize,
+    ) -> Self {
+        println!(
+            "\x1b[93mhost : new byte-source proxy<{}>\x1b[0m",
+            proxy.id()
+        );
 
-        let request: PluginRequest<ByteSourceRequest> = PluginRequest::Plugin(
-            ByteSourceRequest::Setup(ByteSourceSettings {
+        let request: PluginRpc<ByteSourceRpc> =
+            PluginRpc::Request(ByteSourceRpc::Setup(SourceSettings {
                 input_path: input_path.display().to_string(),
                 total_capacity,
-                buffer_min
+                buffer_min,
             }));
         let request_bytes = rkyv::to_bytes::<_, 256>(&request).unwrap();
 
         match proxy.call(&request_bytes) {
             Ok(response_bytes) => {
-                let response: PluginResponse<ByteSourceResponse> = rkyv::from_bytes(&response_bytes).unwrap();
-                if let PluginResponse::Plugin(ByteSourceResponse::SetupDone) = response {
+                let response: PluginRpc<ByteSourceRpc> = rkyv::from_bytes(&response_bytes).unwrap();
+                if let PluginRpc::Response(ByteSourceRpc::SetupDone) = response {
                     // nothing
                 } else {
                     panic!("source-plugin: unexpected response: #{}", response);
@@ -62,10 +73,10 @@ impl ByteSourceProxy {
         }
 
         Self {
-            proxy, 
+            proxy,
             stats: ByteSourceStats::default(),
             content: vec![],
-            offset: 0
+            offset: 0,
         }
     }
 }
@@ -80,28 +91,26 @@ impl ByteSource for ByteSourceProxy {
         }
     }
 
-    async fn reload(&mut self, _filter: Option<&SourceFilter>) -> Result<Option<ReloadInfo>, SourceError> {
+    async fn reload(
+        &mut self,
+        _filter: Option<&SourceFilter>,
+    ) -> Result<Option<ReloadInfo>, SourceError> {
         if self.offset == 0 && !self.content.is_empty() {
-            return Ok(Some(ReloadInfo::new(
-                0,
-                self.content.len(),
-                0,
-                None,
-            )));
+            return Ok(Some(ReloadInfo::new(0, self.content.len(), 0, None)));
         }
 
         self.stats.calls_reload += 1;
 
-        let request: PluginRequest<ByteSourceRequest> = PluginRequest::Plugin(
-            ByteSourceRequest::Reload(self.offset));
+        let request: PluginRpc<ByteSourceRpc> =
+            PluginRpc::Request(ByteSourceRpc::Reload(self.offset));
         let request_bytes = rkyv::to_bytes::<_, 256>(&request).unwrap();
 
         match self.proxy.call(&request_bytes) {
             Ok(response_bytes) => {
-                let response: PluginResponse<ByteSourceResponse> = rkyv::from_bytes(&response_bytes).unwrap();
-                if let PluginResponse::Plugin(ByteSourceResponse::ReloadResult(result)) = response {
+                let response: PluginRpc<ByteSourceRpc> = rkyv::from_bytes(&response_bytes).unwrap();
+                if let PluginRpc::Response(ByteSourceRpc::ReloadResult(result)) = response {
                     match result {
-                        SourceReloadResult::ReloadOk(result) => {
+                        ReloadResult::ReloadOk(result) => {
                             self.stats.reload_ok += 1;
                             self.content = result.bytes;
                             self.offset = 0;
@@ -112,13 +121,17 @@ impl ByteSource for ByteSourceProxy {
                                 result.skipped_bytes,
                                 None,
                             )));
-                        },
-                        SourceReloadResult::ReloadEof => {
+                        }
+                        ReloadResult::ReloadEof => {
                             self.stats.reload_eof += 1;
                             return Ok(None);
                         }
-                        SourceReloadResult::ReloadError(error) => {
-                            println!("\x1b[93mhost : return error from proxy<{}> : {}\x1b[0m", self.proxy.id(), error);
+                        ReloadResult::ReloadError(error) => {
+                            println!(
+                                "\x1b[93mhost : return error from proxy<{}> : {}\x1b[0m",
+                                self.proxy.id(),
+                                error
+                            );
                             self.stats.reload_error += 1;
                             return Err(SourceError::Unrecoverable(error));
                         }
@@ -144,7 +157,11 @@ impl ByteSource for ByteSourceProxy {
 
 impl std::ops::Drop for ByteSourceProxy {
     fn drop(&mut self) {
-        println!("\x1b[93mhost : proxy<{}> stats : {}\x1b[0m", self.proxy.id(), self.stats);
+        println!(
+            "\x1b[93mhost : proxy<{}> stats : {}\x1b[0m",
+            self.proxy.id(),
+            self.stats
+        );
     }
 }
 
@@ -159,7 +176,9 @@ struct ByteSourceStats {
 
 impl std::fmt::Display for ByteSourceStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "c-cns {}, c-rld {}, r-ok {}, r-eof {}, r-err {}", 
+        write!(
+            f,
+            "c-cns {}, c-rld {}, r-ok {}, r-eof {}, r-err {}",
             self.calls_consume,
             self.calls_reload,
             self.reload_ok,

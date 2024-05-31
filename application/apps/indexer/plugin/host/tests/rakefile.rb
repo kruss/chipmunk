@@ -10,7 +10,7 @@ namespace :wasm do
     
     task :setup do
         system("rustup target add wasm32-unknown-unknown")
-        system("cargo install wasm-gc")
+        #system("cargo install wasm-gc")
     end
     
     desc "Clean WASM plugin"
@@ -39,7 +39,7 @@ namespace :wasm do
             cd "target/wasm32-unknown-unknown/release" do
                 FileUtils.remove("plugin.wat") if File.exist?("plugin.wat")
                 system("wasm2wat plugin.wasm >> plugin.wat")
-                system("wasm-gc plugin.wasm")
+                #system("wasm-gc plugin.wasm")
                 FileUtils.cp("plugin.wasm", "../../../")
             end
         end  

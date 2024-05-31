@@ -1,10 +1,8 @@
-use crate::{PluginError, PluginFactory, PluginId, PluginProxy, PluginProxyObj};
-use byteorder::{ByteOrder, LittleEndian};
-use log::{debug, info, trace};
-use std::{any::Any, borrow::Borrow, mem::size_of};
+use crate::{PluginEnv, PluginError, PluginFactory, PluginId, PluginProxy};
+use log::{debug, info};
+use std::borrow::Borrow;
 use wasmer::{
-    imports, AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, Module, Store,
-    TypedFunction, WasmPtr, WasmSlice,
+    imports, AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, WasmPtr,
 };
 
 pub struct WasmPluginFactory {
@@ -18,7 +16,7 @@ impl WasmPluginFactory {
 }
 
 impl PluginFactory for WasmPluginFactory {
-    fn create(&self, id: PluginId) -> Result<PluginProxyObj, PluginError> {
+    fn create(&self, id: PluginId) -> Result<PluginProxy, PluginError> {
         info!("create wasm proxy<{}>", id);
 
         let mut store = Store::default();
@@ -66,99 +64,7 @@ impl PluginFactory for WasmPluginFactory {
         let plugin_env = plugin_env.as_mut(&mut store);
         plugin_env.memory = Some(memory.clone());
 
-        Ok(Box::new(WasmProxy::new(id, store, instance)))
-    }
-}
-
-#[derive(Clone, Debug)]
-struct PluginEnv {
-    id: PluginId,
-    memory: Option<Memory>,
-}
-
-pub struct WasmProxy {
-    id: PluginId,
-    store: Store,
-    instance: Instance,
-    message: TypedFunction<(WasmPtr<u8>, WasmPtr<u8>, u32), ()>,
-}
-
-impl WasmProxy {
-    pub fn new(id: PluginId, store: Store, instance: Instance) -> Self {
-        let message: TypedFunction<(WasmPtr<u8>, WasmPtr<u8>, u32), ()> = instance
-            .exports
-            .get_typed_function(&store, "message")
-            .expect("function");
-
-        WasmProxy {
-            id,
-            store,
-            instance,
-            message,
-        }
-    }
-}
-
-impl PluginProxy for WasmProxy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn id(&self) -> PluginId {
-        self.id
-    }
-
-    fn call(&mut self, request: &[u8]) -> Result<Vec<u8>, PluginError> {
-        debug!("proxy<{}> : send request: {} bytes", self.id, request.len());
-        trace!("{:?}", request);
-
-        let output_offset: u32 = 0;
-        let output_len = 2 * size_of::<u32>() as u32;
-        let input_offset: u32 = output_len; // 4Byte aligned!
-
-        let memory = self.instance.exports.get_memory("memory").expect("memory");
-        {
-            let memory_view = memory.view(&self.store);
-            //println!("wasm memory:     {:?} bytes", memory_view.data_size());
-            //println!("wasm request:    {:?} bytes", request.len());
-            memory_view
-                .write(input_offset.into(), request)
-                .expect("write");
-        }
-
-        let output_ptr = WasmPtr::new(output_offset);
-        let input_ptr = WasmPtr::new(input_offset);
-
-        //println!("wasm output_ptr: {:?}", output_ptr);
-        //println!("wasm input_ptr:  {:?}", input_ptr);
-        //println!("wasm input_len:  {:?}", request.len());
-
-        self.message
-            .call(&mut self.store, output_ptr, input_ptr, request.len() as u32)
-            .expect("call");
-
-        let memory = self.instance.exports.get_memory("memory").expect("memory");
-        let memory_view = memory.view(&self.store);
-
-        let slice: WasmSlice<'_, u8> = output_ptr.slice(&memory_view, output_len).unwrap();
-
-        let bytes = slice.read_to_bytes().unwrap();
-        let buffer: &[u8] = bytes.as_ref();
-
-        let addr: u32 = LittleEndian::read_u32(&buffer[..size_of::<u32>()]);
-        let len: u32 = LittleEndian::read_u32(&buffer[size_of::<u32>()..]);
-        let ptr: WasmPtr<u8> = WasmPtr::new(addr);
-        let data: WasmSlice<'_, u8> = ptr.slice(&memory_view, len).unwrap();
-
-        let response = data.read_to_vec().unwrap();
-        debug!(
-            "proxy<{}> : received response: {} bytes",
-            self.id,
-            response.len()
-        );
-        trace!("{:?}", response);
-
-        Ok(response)
+        Ok(PluginProxy::new(id, store, instance))
     }
 }
 
@@ -182,8 +88,10 @@ mod tests {
 
         let id = 0;
         let mut proxy = factory.create(id).expect("proxy");
-        assert_eq!(id, proxy.id());
+        assert_eq!(id, proxy.id);
 
-        proxy.init().expect("init");
+        let request = [0, 1, 2].to_vec();
+        let response = proxy.call(&request).expect("call");
+        assert_eq!(request, response);
     }
 }

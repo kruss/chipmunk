@@ -42,14 +42,14 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
     //print(&format!("receive request with {} bytes", input.len()));
 
     let request =
-        rkyv::from_bytes(&input).unwrap_or_else(|error| panic("from_bytes", &error.to_string()));
+        rkyv::from_bytes(input).unwrap_or_else(|error| panic("from_bytes", &error.to_string()));
 
     let mut source = SOURCE
         .lock()
         .unwrap_or_else(|error| panic("lock", &error.to_string()));
 
     let response = match request {
-        PluginRequest::Plugin(ByteSourceRequest::Setup(ByteSourceSettings {
+        PluginRpc::Request(ByteSourceRpc::Setup(SourceSettings {
             input_path,
             ..
             //total_capacity,
@@ -57,17 +57,17 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
         })) => {
             print(&format!("init source: {}", input_path));
             // TODO
-            PluginResponse::Plugin(ByteSourceResponse::SetupDone)
+            PluginRpc::Response(ByteSourceRpc::SetupDone)
         }
-        PluginRequest::Plugin(ByteSourceRequest::Reload(offset)) => {
+        PluginRpc::Request(ByteSourceRpc::Reload(offset)) => {
             //print(&format!("consume: {}", offset));
             source.consume(offset);
 
             match source.reload() {
                 Ok(None) => {
                     print("reload eof");
-                    PluginResponse::Plugin(ByteSourceResponse::ReloadResult(
-                        SourceReloadResult::ReloadEof
+                    PluginRpc::Response(ByteSourceRpc::ReloadResult(
+                        ReloadResult::ReloadEof
                     ))
                 },
                 Ok(Some(reload)) => {
@@ -79,8 +79,8 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
                         slice.len()
                     ));
                      */
-                    PluginResponse::Plugin(ByteSourceResponse::ReloadResult(
-                        SourceReloadResult::ReloadOk(SourceReloadOutput {
+                    PluginRpc::Response(ByteSourceRpc::ReloadResult(
+                        ReloadResult::ReloadOk(ReloadOutput {
                             newly_loaded_bytes: reload.newly_loaded_bytes,
                             available_bytes: reload.available_bytes,
                             skipped_bytes: 0,
@@ -90,15 +90,15 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
                 },
                 Err(SourceError::Unrecoverable(error)) => {
                     print(&format!("source error: {}", error));
-                    PluginResponse::Plugin(ByteSourceResponse::ReloadResult(
-                        SourceReloadResult::ReloadError(error),
+                    PluginRpc::Response(ByteSourceRpc::ReloadResult(
+                        ReloadResult::ReloadError(error),
                     ))
                 }
             }
         }
         _ => {
             print(&format!("unexpected request: #{}", request));
-            PluginResponse::Runtime(PluginRuntimeResponse::Error)
+            PluginRpc::Unexpected
         }
     };
 
@@ -112,32 +112,3 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
 
     Response(ptr, len as u32)
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use plugin_host::{wasi::WasiPluginFactory, PluginFactory};
-    use plugin_rpc::{source::*, *};
-    use std::path::PathBuf;
-
-    fn load_plugin() -> Vec<u8> {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("target/wasm32-wasi/release/plugin.wasm");
-        std::fs::read(path).unwrap()
-    }
-
-    #[test]
-    fn test_source_plugin() {
-        let _ = env_logger::try_init();
-
-        let binary = load_plugin();
-        let factory = WasiPluginFactory::new(binary);
-
-        let id = 0;
-        let mut proxy = factory.create(id).expect("proxy");
-        assert_eq!(id, proxy.id());
-
-        // TODO
-    }
-}
- */

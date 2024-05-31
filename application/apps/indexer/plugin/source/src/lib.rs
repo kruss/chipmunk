@@ -1,22 +1,21 @@
 use std::{
-    io::{BufReader, BufRead},
     fs::File,
+    io::{BufRead, BufReader},
 };
 
 const DEFAULT_READER_CAPACITY: usize = 512 * 1024; // TODO TEMP !
 
-pub struct PluginByteSource
-{
+pub struct PluginByteSource {
     reader: BufReader<File>,
     content: Vec<u8>,
     offset: usize,
 }
 
 impl Default for PluginByteSource {
-    fn default() -> Self { 
+    fn default() -> Self {
         PluginByteSource::new(
             File::open("temp.dlt").expect("open"),
-            DEFAULT_READER_CAPACITY
+            DEFAULT_READER_CAPACITY,
         )
     }
 }
@@ -24,10 +23,10 @@ impl Default for PluginByteSource {
 impl PluginByteSource {
     pub fn new(input: File, total_capacity: usize) -> PluginByteSource {
         let reader = BufReader::with_capacity(total_capacity, input);
-        PluginByteSource { 
+        PluginByteSource {
             reader,
             content: vec![],
-            offset: 0
+            offset: 0,
         }
     }
 
@@ -37,9 +36,7 @@ impl PluginByteSource {
         }
     }
 
-    pub fn reload(
-        &mut self,
-    ) -> Result<Option<ReloadInfo>, SourceError> {
+    pub fn reload(&mut self) -> Result<Option<ReloadInfo>, SourceError> {
         let initial_len = self.len();
 
         self.reader.consume(self.offset);
@@ -61,16 +58,14 @@ impl PluginByteSource {
             return Ok(None);
         }
 
-        Ok(Some(ReloadInfo::new(
-            newly_loaded_bytes,
-            available_bytes,
-        )))
+        Ok(Some(ReloadInfo::new(newly_loaded_bytes, available_bytes)))
     }
 
     pub fn current_slice(&self) -> &[u8] {
         &self.content[self.offset..]
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.content.len() - self.offset
     }

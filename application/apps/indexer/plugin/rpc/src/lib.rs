@@ -3,33 +3,10 @@ use strum_macros::Display;
 
 #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
 #[archive(check_bytes)]
-pub enum PluginRequest<T> {
-    Runtime(PluginRuntimeRequest),
-    Plugin(T),
-}
-
-#[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
-#[archive(check_bytes)]
-pub enum PluginResponse<T> {
-    Runtime(PluginRuntimeResponse),
-    Plugin(T),
-}
-
-#[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
-#[archive(check_bytes)]
-pub enum PluginRuntimeRequest {
-    Version,
-    Init,
-    Shutdown,
-}
-
-#[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
-#[archive(check_bytes)]
-pub enum PluginRuntimeResponse {
-    Version,
-    Init,
-    Shutdown,
-    Error,
+pub enum PluginRpc<T> {
+    Request(T),
+    Response(T),
+    Unexpected,
 }
 
 pub mod source {
@@ -37,14 +14,16 @@ pub mod source {
 
     #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
     #[archive(check_bytes)]
-    pub enum ByteSourceRequest {
-        Setup(ByteSourceSettings),
+    pub enum ByteSourceRpc {
+        Setup(SourceSettings),
+        SetupDone,
         Reload(usize),
+        ReloadResult(ReloadResult)
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
     #[archive(check_bytes)]
-    pub struct ByteSourceSettings {
+    pub struct SourceSettings {
         pub input_path: String,
         pub total_capacity: usize,
         pub buffer_min: usize
@@ -52,22 +31,15 @@ pub mod source {
 
     #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
     #[archive(check_bytes)]
-    pub enum ByteSourceResponse {
-        SetupDone,
-        ReloadResult(SourceReloadResult)
-    }
-
-    #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
-    #[archive(check_bytes)]
-    pub enum SourceReloadResult {
-        ReloadOk(SourceReloadOutput),
+    pub enum ReloadResult {
+        ReloadOk(ReloadOutput),
         ReloadEof,
         ReloadError(String)
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
     #[archive(check_bytes)]
-    pub struct SourceReloadOutput {
+    pub struct ReloadOutput {
         pub newly_loaded_bytes: usize,
         pub available_bytes: usize,
         pub skipped_bytes: usize,
@@ -80,34 +52,29 @@ pub mod dlt {
 
     #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
     #[archive(check_bytes)]
-    pub enum DltParserRequest {
-        Setup(DltParserSettings),
-        Parse(DltParseInput),
+    pub enum DltParserRpc {
+        Setup(ParserSettings),
+        SetupDone,
+        Parse(ParseInput),
+        ParseResult(Vec<ParserResult>)
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
     #[archive(check_bytes)]
-    pub struct DltParserSettings {
+    pub struct ParserSettings {
         pub with_storage_header: bool
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
     #[archive(check_bytes)]
-    pub struct DltParseInput {
+    pub struct ParseInput {
         pub bytes: Vec<u8>
     }
 
     #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
     #[archive(check_bytes)]
-    pub enum DltParserResponse {
-        SetupDone,
-        ParseResult(Vec<DltParserResult>)
-    }
-
-    #[derive(Archive, Serialize, Deserialize, Debug, Display, PartialEq)]
-    #[archive(check_bytes)]
-    pub enum DltParserResult {
-        ParseOk(DltParseOutput),
+    pub enum ParserResult {
+        ParseOk(ParseOutput),
         ParseIncomplete,
         ParseEof,
         ParseError(String)
@@ -115,7 +82,7 @@ pub mod dlt {
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
     #[archive(check_bytes)]
-    pub struct DltParseOutput {
+    pub struct ParseOutput {
         pub bytes_remaining: usize,
         pub message: Option<String>,
     }

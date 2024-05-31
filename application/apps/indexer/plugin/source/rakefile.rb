@@ -18,10 +18,12 @@ end
 desc "Check WASI plugin"
 task :check do |t|
     title t.name
-    Rake.sh "cargo +stable clippy --lib"
-    Rake.sh "cargo +stable fmt --lib"
-    Rake.sh "cargo +nightly clippy --bin plugin"
-    Rake.sh "cargo +nightly fmt --bin plugin"
+    Rake.sh "cargo +stable clippy"
+    Rake.sh "cargo +stable fmt"
+    #Rake.sh "cargo +stable clippy --lib"
+    #Rake.sh "cargo +stable fmt --lib"
+    #Rake.sh "cargo +nightly clippy --bin plugin"
+    #Rake.sh "cargo +nightly fmt --bin plugin"
 end
 
 desc "Test WASI plugin"

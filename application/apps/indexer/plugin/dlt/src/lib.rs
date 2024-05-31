@@ -39,23 +39,23 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
     //print(&format!("receive request with {} bytes", input.len()));
 
     let request =
-        rkyv::from_bytes(&input).unwrap_or_else(|error| panic("from_bytes", &error.to_string()));
+        rkyv::from_bytes(input).unwrap_or_else(|error| panic("from_bytes", &error.to_string()));
 
     let mut parser = PARSER
         .lock()
         .unwrap_or_else(|error| panic("lock", &error.to_string()));
 
     let response = match request {
-        PluginRequest::Plugin(DltParserRequest::Setup(DltParserSettings {
+        PluginRpc::Request(DltParserRpc::Setup(ParserSettings {
             with_storage_header,
         })) => {
             print("init parser");
             parser.with_storage_header = with_storage_header;
-            PluginResponse::Plugin(DltParserResponse::SetupDone)
+            PluginRpc::Response(DltParserRpc::SetupDone)
         }
-        PluginRequest::Plugin(DltParserRequest::Parse(DltParseInput { bytes })) => {
-            let response: PluginResponse<DltParserResponse>;
-            let mut results: Vec<DltParserResult> = Vec::new();
+        PluginRpc::Request(DltParserRpc::Parse(ParseInput { bytes })) => {
+            let response: PluginRpc<DltParserRpc>;
+            let mut results: Vec<ParserResult> = Vec::new();
             let mut input: &[u8] = &bytes;
             loop {
                 match parser.parse(input, None) {
@@ -75,13 +75,12 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
                                 Some(format!("{}", message)) // TODO
                             }
                         };
-                        results.push(DltParserResult::ParseOk(DltParseOutput {
+                        results.push(ParserResult::ParseOk(ParseOutput {
                             bytes_remaining,
                             message,
                         }));
                         if rest.is_empty() {
-                            response =
-                                PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                            response = PluginRpc::Response(DltParserRpc::ParseResult(results));
                             break;
                         } else {
                             input = rest;
@@ -90,13 +89,12 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
                     Ok((rest, None)) => {
                         let bytes_remaining = rest.len();
                         //print(&format!("filtered message ({} bytes remaining)", bytes_remaining));
-                        results.push(DltParserResult::ParseOk(DltParseOutput {
+                        results.push(ParserResult::ParseOk(ParseOutput {
                             bytes_remaining,
                             message: None,
                         }));
                         if rest.is_empty() {
-                            response =
-                                PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                            response = PluginRpc::Response(DltParserRpc::ParseResult(results));
                             break;
                         } else {
                             input = rest;
@@ -104,22 +102,22 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
                     }
                     Err(ParserError::Incomplete) => {
                         print("parse incomplete");
-                        results.push(DltParserResult::ParseIncomplete);
-                        response = PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                        results.push(ParserResult::ParseIncomplete);
+                        response = PluginRpc::Response(DltParserRpc::ParseResult(results));
                         break;
                     }
                     Err(ParserError::Eof) => {
                         print("parse eof");
-                        results.push(DltParserResult::ParseEof);
-                        response = PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                        results.push(ParserResult::ParseEof);
+                        response = PluginRpc::Response(DltParserRpc::ParseResult(results));
                         break;
                     }
                     Err(ParserError::Parse(error)) => {
                         //print(&format!("parse error: {}", error));
                         if results.is_empty() {
-                            results.push(DltParserResult::ParseError(error));
+                            results.push(ParserResult::ParseError(error));
                         }
-                        response = PluginResponse::Plugin(DltParserResponse::ParseResult(results));
+                        response = PluginRpc::Response(DltParserRpc::ParseResult(results));
                         break;
                     }
                 };
@@ -128,7 +126,7 @@ pub unsafe extern "C" fn message(ptr: *const u8, len: u32) -> Response {
         }
         _ => {
             print(&format!("unexpected request: #{}", request));
-            PluginResponse::Runtime(PluginRuntimeResponse::Error)
+            PluginRpc::Unexpected
         }
     };
 
@@ -201,16 +199,15 @@ mod tests {
 
         let dlt_msg = "2019-03-20T02:15:50.758172000Z\u{4}ECU1\u{4}1\u{4}383\u{4}64\u{4}6027030\u{4}ECU1\u{4}VSom\u{4}vssd\u{4}LogLevel DEBUG\u{4}\u{5}[383: ServiceDiscoveryUdpEndpoint(160.48.199.102:50152)] \u{5}ProcessMessage\u{5}:\u{5}269\u{5}: \u{5}160.48.199.16,30501";
 
-        let request =
-            PluginRequest::Plugin(DltParserRequest::Parse(DltParseInput { bytes: dlt_bytes }));
+        let request = PluginRpc::Request(DltParserRpc::Parse(ParseInput { bytes: dlt_bytes }));
         let input = rkyv::to_bytes::<_, 256>(&request).unwrap();
         let output = proxy.call(&input).expect("call");
-        let response: PluginResponse<DltParserResponse> = rkyv::from_bytes(&output).unwrap();
+        let response: PluginRpc<DltParserRpc> = rkyv::from_bytes(&output).unwrap();
 
-        if let PluginResponse::Plugin(DltParserResponse::ParseResult(results)) = response {
+        if let PluginRpc::Response(DltParserRpc::ParseResult(results)) = response {
             assert_eq!(1, results.len());
             let result = results.get(0).unwrap();
-            if let DltParserResult::ParseOk(DltParseOutput {
+            if let ParserResult::ParseOk(ParseOutput {
                 bytes_remaining,
                 message,
             }) = result
@@ -222,40 +219,6 @@ mod tests {
             }
         } else {
             panic!("invalid response");
-        }
-    }
-
-    #[test]
-    pub fn test_dlt_requests() {
-        let items = [
-            PluginRequest::Runtime(PluginRuntimeRequest::Init),
-            PluginRequest::Plugin(DltParserRequest::Parse(DltParseInput {
-                bytes: [0, 1, 2, 3].to_vec(),
-            })),
-        ];
-
-        for item in items {
-            let bytes = rkyv::to_bytes::<_, 256>(&item).unwrap();
-            println!("req: {}\t: {:?} => {} bytes", item, bytes, bytes.len());
-            let deserialized = rkyv::from_bytes(&bytes).unwrap();
-            assert_eq!(item, deserialized);
-        }
-    }
-
-    #[test]
-    pub fn test_dlt_responses() {
-        let items = [
-            PluginResponse::Runtime(PluginRuntimeResponse::Init),
-            PluginResponse::Plugin(DltParserResponse::ParseResult(vec![
-                DltParserResult::ParseEof,
-            ])),
-        ];
-
-        for item in items {
-            let bytes = rkyv::to_bytes::<_, 256>(&item).unwrap();
-            println!("res: {}\t: {:?} => {} bytes", item, bytes, bytes.len());
-            let deserialized = rkyv::from_bytes(&bytes).unwrap();
-            assert_eq!(item, deserialized);
         }
     }
 }
