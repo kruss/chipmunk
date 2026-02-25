@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::Utc;
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
@@ -7,6 +8,8 @@ use crate::{
     host::{
         command::HostCommand,
         ui::{
+            HomeScreen,
+            home::settings::RecentSession,
             multi_setup::{MultiFileSetup, state::MultiFileState},
             session_setup::{SessionSetup, state::SessionSetupState},
             tabs::TabType,
@@ -16,9 +19,11 @@ use crate::{
 };
 
 pub const HOME_TAB_IDX: usize = 0;
+const MAX_RECENT_SESSIONS: usize = 100;
 
 #[derive(Debug)]
 pub struct HostState {
+    pub home_screen: HomeScreen,
     pub active_tab_idx: usize,
     pub tabs: Vec<TabType>,
     pub sessions: HashMap<Uuid, Session>,
@@ -27,6 +32,17 @@ pub struct HostState {
 }
 
 impl HostState {
+    pub fn new(cmd_tx: Sender<HostCommand>) -> Self {
+        Self {
+            home_screen: HomeScreen::new(cmd_tx),
+            active_tab_idx: 0,
+            tabs: vec![TabType::Home],
+            sessions: HashMap::new(),
+            session_setups: HashMap::new(),
+            multi_setups: HashMap::new(),
+        }
+    }
+
     pub fn active_tab(&self) -> &TabType {
         &self.tabs[self.active_tab_idx]
     }
@@ -37,6 +53,31 @@ impl HostState {
         session_setup_id: Option<Uuid>,
         host_cmd_tx: Sender<HostCommand>,
     ) {
+        if let Some(config) = &session.session_config {
+            let now = Utc::now().timestamp() as u64;
+            let recent = &mut self.home_screen.home_settings.recent_sessions;
+
+            if let Some(entry) = recent
+                .iter_mut()
+                .find(|f| f.title == session.session_info.title)
+            {
+                entry.last_opened = now;
+
+                if !entry.configurations.iter().any(|c| c.id == config.id) {
+                    entry.configurations.push(config.clone());
+                }
+            } else {
+                recent.push(RecentSession {
+                    title: session.session_info.title.clone(),
+                    last_opened: now,
+                    configurations: vec![config.clone()],
+                });
+            }
+
+            recent.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+            recent.truncate(MAX_RECENT_SESSIONS);
+        }
+
         let session = Session::new(session, host_cmd_tx);
         let id = session.get_info().id;
 
@@ -167,18 +208,6 @@ impl HostState {
         } else if self.active_tab_idx > removed_idx {
             // Tabs after the deleted one will be shifted one place to the left.
             self.active_tab_idx -= 1;
-        }
-    }
-}
-
-impl Default for HostState {
-    fn default() -> Self {
-        Self {
-            active_tab_idx: 0,
-            tabs: vec![TabType::Home],
-            sessions: HashMap::new(),
-            session_setups: HashMap::new(),
-            multi_setups: HashMap::new(),
         }
     }
 }

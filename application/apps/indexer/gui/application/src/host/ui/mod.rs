@@ -16,7 +16,7 @@ use crate::{
         message::HostMessage,
         service::HostService,
         ui::{
-            home::HomeView,
+            home::HomeScreen,
             notification::NotificationUi,
             session_setup::state::{
                 parsers::ParserConfig,
@@ -32,7 +32,7 @@ use state::HostState;
 pub use actions::{HostAction, UiActions};
 
 pub mod actions;
-mod home;
+pub mod home;
 mod menu;
 pub mod multi_setup;
 mod notification;
@@ -41,6 +41,7 @@ mod state;
 mod tabs;
 
 const APP_TITLE: &str = "Chipmunk";
+const APP_SETTINGS: &str = "chipmunk.json";
 
 #[derive(Debug)]
 pub struct Host {
@@ -72,12 +73,13 @@ impl Host {
                 phosphor::init(&ctx.egui_ctx);
 
                 let menu = MainMenuBar::new(ui_comm.senders.cmd_tx.clone());
+                let state = HostState::new(ui_comm.senders.cmd_tx.clone());
                 let mut host = Self {
                     menu,
                     receivers: ui_comm.receivers,
                     senders: ui_comm.senders,
                     notifications: NotificationUi::default(),
-                    state: HostState::default(),
+                    state,
                     ui_actions: UiActions::new(tokio_handle),
                 };
 
@@ -213,7 +215,7 @@ impl Host {
     fn render_main(&mut self, ui: &mut Ui) {
         let Self { ui_actions, .. } = self;
         match *self.state.active_tab() {
-            TabType::Home => HomeView::render_content(ui),
+            TabType::Home => self.state.home_screen.render_content(ui_actions, ui),
             TabType::Session(id) => self
                 .state
                 .sessions
@@ -303,6 +305,7 @@ impl eframe::App for Host {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         trace!("App Shutdown requested.");
+        self.state.home_screen.save();
 
         let (confirm_tx, confirm_rx) = std::sync::mpsc::channel();
         let cmd = HostCommand::OnShutdown { confirm_tx };
