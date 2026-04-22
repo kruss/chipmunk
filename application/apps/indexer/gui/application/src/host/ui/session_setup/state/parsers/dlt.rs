@@ -48,6 +48,13 @@ impl DltParserConfig {
     }
 
     pub fn from_observe_options(settings: &DltParserSettings, origin: &ObserveOrigin) -> Self {
+        let log_level = settings
+            .filter_config
+            .as_ref()
+            .and_then(|c| c.min_log_level)
+            .and_then(|level| DltLogLevel::try_from(level).ok())
+            .unwrap_or(DltLogLevel::Verbose);
+
         let source_paths = match origin {
             ObserveOrigin::File(_, _, path_buf) => Some(vec![path_buf.to_owned()]),
             ObserveOrigin::Concat(items) => Some(
@@ -59,26 +66,23 @@ impl DltParserConfig {
             ObserveOrigin::Stream(..) => None,
         };
 
+        let fibex_files = settings
+            .fibex_file_paths
+            .as_ref()
+            .map(|paths| {
+                paths
+                    .iter()
+                    .map(PathBuf::from)
+                    .map(FibexFileInfo::from_path_lossy)
+                    .collect_vec()
+            })
+            .unwrap_or_default();
+
         Self {
             with_storage_header: settings.with_storage_header,
-            log_level: settings
-                .filter_config
-                .as_ref()
-                .and_then(|c| c.min_log_level)
-                .and_then(|level| DltLogLevel::try_from(level).ok())
-                .unwrap_or(DltLogLevel::Verbose),
+            log_level,
             source_paths,
-            fibex_files: settings
-                .fibex_file_paths
-                .as_ref()
-                .map(|paths| {
-                    paths
-                        .iter()
-                        .map(PathBuf::from)
-                        .map(FibexFileInfo::from_path_lossy)
-                        .collect_vec()
-                })
-                .unwrap_or_default(),
+            fibex_files,
             timezone: settings.tz.to_owned(),
             timezone_list: Self::timezone_list(),
             timezone_filter: String::default(),
