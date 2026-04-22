@@ -106,7 +106,10 @@ impl Arbitrary for SomeIpParserSettings {
 
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         any::<Option<Vec<String>>>()
-            .prop_map(|fibex_file_paths| SomeIpParserSettings { fibex_file_paths })
+            .prop_map(|fibex_file_paths| SomeIpParserSettings {
+                filter_config: None,
+                fibex_file_paths,
+            })
             .boxed()
     }
 }

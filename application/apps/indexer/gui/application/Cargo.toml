@@ -48,6 +48,8 @@ regex-syntax.workspace = true
 enum-iterator.workspace = true
 blake3.workspace = true
 nucleo-matcher.workspace = true
+pcap-parser = "0.16"
+someip-messages = { git = "https://github.com/esrlabs/someip" }
 
 #TODO: Replace env logger with log4rs
 env_logger.workspace = true

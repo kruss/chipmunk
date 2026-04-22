@@ -32,7 +32,8 @@ pub struct SessionSetup {
 /// The outcome of render routines in children components of this view.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RenderOutcome {
-    CollectStatistics,
+    CollectDltStatistics,
+    CollectSomeipStatistics,
     StartSession,
     None,
 }
@@ -97,9 +98,14 @@ impl SessionSetup {
                     ui,
                 );
                 match outcome {
-                    RenderOutcome::CollectStatistics => {
+                    RenderOutcome::CollectDltStatistics => {
                         if self.state.is_valid() {
-                            self.state.collect_statistics(&self.cmd_tx, actions);
+                            self.state.collect_dlt_statistics(&self.cmd_tx, actions);
+                        }
+                    }
+                    RenderOutcome::CollectSomeipStatistics => {
+                        if self.state.is_valid() {
+                            self.state.collect_someip_statistics(&self.cmd_tx, actions);
                         }
                     }
                     RenderOutcome::StartSession => {

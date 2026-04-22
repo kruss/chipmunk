@@ -31,6 +31,7 @@ mod dlt;
 pub mod process;
 mod recent;
 mod serial;
+mod someip;
 mod tcp;
 pub mod udp;
 
@@ -98,9 +99,8 @@ fn render_files(
 ) -> RenderOutcome {
     match parser {
         ParserConfig::Dlt(dlt) => dlt::render_statistics(dlt, ui),
-        ParserConfig::SomeIP(..) | ParserConfig::Text | ParserConfig::Plugins => {
-            RenderOutcome::None
-        }
+        ParserConfig::SomeIP(someip) => someip::render_statistics(someip, ui),
+        ParserConfig::Text | ParserConfig::Plugins => RenderOutcome::None,
     }
 }
 

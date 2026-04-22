@@ -90,6 +90,7 @@ async fn observe_someip_bcapng_session() {
     );
 
     let parser_settings = stypes::SomeIpParserSettings {
+        filter_config: None,
         fibex_file_paths: Some(vec![String::from(fibex_file)]),
     };
 
@@ -125,6 +126,7 @@ async fn observe_someip_legacy_session() {
     );
 
     let parser_settings = stypes::SomeIpParserSettings {
+        filter_config: None,
         fibex_file_paths: Some(vec![String::from(fibex_file)]),
     };
 

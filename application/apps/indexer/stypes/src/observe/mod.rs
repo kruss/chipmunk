@@ -92,8 +92,23 @@ pub struct DltParserSettings {
     ts(export, export_to = "observe.ts")
 )]
 pub struct SomeIpParserSettings {
+    /// Configuration for filtering SOME/IP messages.
+    pub filter_config: Option<SomeipFilterConfig>,
     /// Paths to FIBEX files for additional interpretation of `payload` content.
     pub fibex_file_paths: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[extend::encode_decode]
+#[cfg_attr(
+    all(test, feature = "test_and_gen"),
+    derive(TS),
+    ts(export, export_to = "observe.ts")
+)]
+
+pub struct SomeipFilterConfig {
+    /// List of messages to filter for (service_id, method_id)
+    pub messages: Vec<(u16, u16)>,
 }
 
 /// Describes the transport source for a session.

@@ -161,6 +161,17 @@ impl Host {
                     config.update_summary();
                 }
             }
+            HostMessage::SomeipStatistics {
+                setup_session_id,
+                statistics,
+            } => {
+                if let Some(setup) = self.state.session_setups.get_mut(&setup_session_id)
+                    && let ParserConfig::SomeIP(config) = &mut setup.state.parser
+                {
+                    config.someip_statistics = Some(Box::new(*statistics.unwrap_or_default()));
+                    config.update_summary();
+                }
+            }
             HostMessage::SessionCreated {
                 session,
                 session_setup_id,

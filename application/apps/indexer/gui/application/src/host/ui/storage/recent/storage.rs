@@ -303,6 +303,7 @@ mod tests {
             path,
             stypes::FileFormat::Text,
             ParserType::SomeIp(stypes::SomeIpParserSettings {
+                filter_config: None,
                 fibex_file_paths: None,
             }),
         ));
