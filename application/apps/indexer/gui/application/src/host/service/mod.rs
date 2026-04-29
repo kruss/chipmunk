@@ -14,7 +14,7 @@ use uuid::Uuid;
 use parsers::dlt::DltFilterConfig;
 use stypes::{
     DltParserSettings, FileFormat, NativeError, NativeErrorKind, ObserveOptions, ObserveOrigin,
-    ParserType, Severity, SomeIpParserSettings, Transport,
+    ParserType, Severity, SomeIpParserSettings, SomeipFilterConfig, Transport,
 };
 
 use crate::{
@@ -827,6 +827,19 @@ impl HostService {
                 ParserType::Dlt(dlt_config)
             }
             ParserConfig::SomeIP(config) => {
+                let selected_ids = &config.someip_tables.serv_table.selected_ids;
+                let filter_config = if selected_ids.is_empty() {
+                    None
+                } else {
+                    let mut message_ids = Vec::new();
+                    for id in selected_ids {
+                        message_ids.push((id.service_id, id.method_id));
+                    }
+                    Some(SomeipFilterConfig {
+                        messages: message_ids,
+                    })
+                };
+
                 let fibex_file_paths = config.fibex_files.is_empty().not().then(|| {
                     config
                         .fibex_files
@@ -835,7 +848,10 @@ impl HostService {
                         .collect()
                 });
 
-                let someip_settings = SomeIpParserSettings { fibex_file_paths };
+                let someip_settings = SomeIpParserSettings {
+                    filter_config,
+                    fibex_file_paths,
+                };
 
                 ParserType::SomeIp(someip_settings)
             }

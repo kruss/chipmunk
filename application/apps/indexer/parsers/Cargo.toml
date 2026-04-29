@@ -19,6 +19,7 @@ serde = { workspace = true , features = ["derive"] }
 thiserror.workspace = true
 rand.workspace = true
 someip-messages = { git = "https://github.com/esrlabs/someip" }
+stypes = { path = "../stypes"}
 
 # NOTE: Pinned to a specific commit because our unsafe code in `someip.rs`
 # depends on the internal implementation of this library.

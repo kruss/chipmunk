@@ -549,6 +549,7 @@ mod tests {
                 }),
             ),
             parser: ParserType::SomeIp(stypes::SomeIpParserSettings {
+                filter_config: None,
                 fibex_file_paths: Some(vec![String::from("/tmp/one.xml")]),
             }),
         });

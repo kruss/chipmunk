@@ -607,7 +607,8 @@ impl fmt::Display for FormattableMessage<'_> {
                     })
                     && let Some(slice) = slices.get(1)
                 {
-                    match SomeipParser::parse_message(self.fibex_someip_metadata, slice, None) {
+                    match SomeipParser::parse_message(None, self.fibex_someip_metadata, slice, None)
+                    {
                         Ok((_, message)) => {
                             let prefix = slices.first().map_or_else(String::default, |s| {
                                 parse_prefix(s)
