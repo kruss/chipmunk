@@ -1,4 +1,8 @@
 #![deny(unused_crate_dependencies)]
+#[cfg(feature = "details-preview")]
+use eframe as _;
+
+pub mod details;
 pub mod dlt;
 pub mod someip;
 pub mod text;
@@ -6,6 +10,7 @@ pub mod text;
 /// Unified separator used by built-in parsers to delimit rendered table columns.
 pub const COLUMN_SEPARATOR: &str = "\u{0004}";
 
+use details::{StructuredLogMessage, DetailNode, NodeRole, ByteRange};
 use serde::Serialize;
 use std::{
     fmt::{Debug, Display},
@@ -87,6 +92,26 @@ pub trait Parser {
         input: &[u8],
         timestamp: Option<u64>,
     ) -> Result<impl Iterator<Item = ParseOutput<Self::Output>>, Error>;
+
+    /// Returns details on the raw bytes representing an item, if any.
+    fn details(input: &[u8]) -> Result<StructuredLogMessage, Error> {
+        let root = DetailNode {
+            name: String::from("Payload"),
+            role: NodeRole::Payload,
+            value: None,
+            byte_range: Some(ByteRange {
+                offset: 0,
+                length: input.len()
+            }),
+            bit_range: None,
+            children: vec![]
+        };
+
+        Ok(StructuredLogMessage {
+            root,
+            bytes: Some(input.to_vec())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

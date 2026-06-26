@@ -20,12 +20,21 @@ lazy_static.workspace = true
 log.workspace = true
 regex.workspace = true
 memchr.workspace = true
-serde = { workspace = true , features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 thiserror.workspace = true
 rand.workspace = true
 someip-messages.workspace = true
 someip-payload.workspace = true
+eframe = { git = "https://github.com/AmmarAbouZor/egui", rev = "a9f3a3e4ce95e014d46bae8ab49021b3e77213c8", optional = true }
 
 [dev-dependencies]
 # External crates
 stringreader.workspace = true
+
+[features]
+details-preview = ["dep:eframe"]
+
+[[example]]
+name = "structured_log_preview"
+required-features = ["details-preview"]
