@@ -34,7 +34,7 @@ fn load_json() -> Option<String> {
 
 struct StructuredPreviewApp {
     message: StructuredLogMessage,
-    selected: Option<egui::Id>,
+    selected: Option<u64>,
 }
 
 impl Default for StructuredPreviewApp {
@@ -78,19 +78,18 @@ impl eframe::App for StructuredPreviewApp {
 fn show_detail_node(
     ui: &mut egui::Ui,
     node: &DetailNode,
-    selected: &mut Option<egui::Id>,
+    selected: &mut Option<u64>,
     bytes: Option<&[u8]>,
 ) {
-    let id = node_id(node);
+    let is_selected = *selected == Some(node.id);
     let label = node_label(node);
-    let is_selected = *selected == Some(id);
 
     if node.children.is_empty() {
         ui.horizontal(|ui| {
             let response = ui.selectable_label(is_selected, label);
 
             if response.clicked() {
-                *selected = Some(id);
+                *selected = Some(node.id);
             }
 
             response.context_menu(|ui| {
@@ -105,14 +104,14 @@ fn show_detail_node(
 
     egui::collapsing_header::CollapsingState::load_with_default_open(
         ui.ctx(),
-        id.with("collapse"),
+        egui::Id::new(("detail_node", node.id)),
         false,
     )
     .show_header(ui, |ui| {
         let response = ui.selectable_label(is_selected, label);
 
         if response.clicked() {
-            *selected = Some(id);
+            *selected = Some(node.id);
         }
 
         response.context_menu(|ui| {
@@ -128,14 +127,10 @@ fn show_detail_node(
     });
 }
 
-fn node_id(node: &DetailNode) -> egui::Id {
-    egui::Id::new(node as *const DetailNode)
-}
-
-fn find_selected_range(node: &DetailNode, selected: Option<egui::Id>) -> Option<ByteRange> {
+fn find_selected_range(node: &DetailNode, selected: Option<u64>) -> Option<ByteRange> {
     let selected = selected?;
 
-    if node_id(node) == selected {
+    if node.id == selected {
         return node.byte_range;
     }
 

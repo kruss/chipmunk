@@ -1,0 +1,26 @@
+use egui::{Frame, Label, Margin, RichText, Ui, Widget};
+use parsers::details::*;
+use stypes::GrabbedElement;
+
+use crate::session::ui::shared::SessionShared;
+
+#[derive(Debug, Default)]
+pub struct StructuredLogUi {
+    pub message: Option<StructuredLogMessage>
+}
+
+impl StructuredLogUi {
+    pub fn handle_selected_log(&mut self, selected_row: Option<u64>, log: GrabbedElement) {
+        if selected_row.is_some_and(|row| row == log.pos as u64) {
+            // TODO
+        }
+    }
+
+    pub fn render_content(&mut self, shared: &SessionShared, ui: &mut Ui) {
+        if shared.logs.selected_count() != 1 {
+            return;
+        }
+
+        // TODO
+    }
+}

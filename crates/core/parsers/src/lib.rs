@@ -10,7 +10,7 @@ pub mod text;
 /// Unified separator used by built-in parsers to delimit rendered table columns.
 pub const COLUMN_SEPARATOR: &str = "\u{0004}";
 
-use details::{StructuredLogMessage, DetailNode, NodeRole, ByteRange};
+use details::{ByteRange, DetailNode, NodeRole, StructuredLogMessage};
 use serde::Serialize;
 use std::{
     fmt::{Debug, Display},
@@ -96,20 +96,21 @@ pub trait Parser {
     /// Returns details on the raw bytes representing an item, if any.
     fn details(input: &[u8]) -> Result<StructuredLogMessage, Error> {
         let root = DetailNode {
+            id: 0,
             name: String::from("Payload"),
             role: NodeRole::Payload,
             value: None,
             byte_range: Some(ByteRange {
                 offset: 0,
-                length: input.len()
+                length: input.len(),
             }),
             bit_range: None,
-            children: vec![]
+            children: vec![],
         };
 
         Ok(StructuredLogMessage {
             root,
-            bytes: Some(input.to_vec())
+            bytes: Some(input.to_vec()),
         })
     }
 }

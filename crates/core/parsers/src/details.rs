@@ -20,6 +20,9 @@ pub struct StructuredLogMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DetailNode {
+    #[serde(skip)]
+    pub id: u64,
+
     pub name: String,
     pub role: NodeRole,
 
@@ -81,7 +84,24 @@ pub struct BitRange {
 
 impl StructuredLogMessage {
     pub fn from_json(json: &str) -> Result<Self, String> {
-        serde_json::from_str::<Self>(json).map_err(|err| err.to_string())
+        let mut message = serde_json::from_str::<Self>(json).map_err(|err| err.to_string())?;
+        message.pack();
+
+        Ok(message)
+    }
+
+    fn pack(&mut self) {
+        let mut next_id = 0;
+        pack_node(&mut self.root, &mut next_id);
+    }
+}
+
+fn pack_node(node: &mut DetailNode, next_id: &mut u64) {
+    node.id = *next_id;
+    *next_id += 1;
+
+    for child in &mut node.children {
+        pack_node(child, next_id);
     }
 }
 
@@ -100,6 +120,7 @@ mod tests {
 
         let message = StructuredLogMessage::from_json(json).unwrap();
 
+        assert_eq!(message.root.id, 0);
         assert_eq!(message.root.name, "DLT Message");
         assert!(matches!(message.root.role, NodeRole::Frame));
         assert!(message.root.children.is_empty());
